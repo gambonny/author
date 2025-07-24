@@ -1,5 +1,5 @@
 {
-  "name": "creator",
+  "name": "author",
   "type": "module",
   "private": true,
   "scripts": {

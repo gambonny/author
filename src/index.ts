@@ -35,7 +35,7 @@ app.use(tao({ origin }))
 
 app.use(traceparent())
 app.use(trimTrailingSlash())
-app.use(logger({ appName: "Creator" }))
+app.use(logger({ appName: "Author" }))
 
 app.get("/message", c => {
   return c.text("Hello Hono!")
