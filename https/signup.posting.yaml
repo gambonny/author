@@ -1,0 +1,15 @@
+name: Signup
+method: POST
+url: http://localhost:8787/signup
+body:
+  content: |-
+    {
+      "email": "gambonny@gmail.com",
+      "password": "12345678"
+    }
+  content_type: application/json
+headers:
+- name: traceparent
+  value: xxx
+- name: content-type
+  value: application/json

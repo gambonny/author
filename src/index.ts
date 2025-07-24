@@ -12,7 +12,7 @@ import { logger } from "@/middlewares/logger"
 
 import { extract } from "@/lib/valibot"
 import { urls } from "@/schemas"
-import { routes } from "./routes"
+import { routes } from "@/routes"
 
 import type { AppEnv } from "@/types"
 
