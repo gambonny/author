@@ -6,11 +6,13 @@ import { trimTrailingSlash } from "hono/trailing-slash"
 import { uaBlocker } from "@hono/ua-blocker"
 import { aiBots, useAiRobotsTxt } from "@hono/ua-blocker/ai-bots"
 
-import { urls } from "@/schemas"
 import { tao } from "@/middlewares/tao"
 import { traceparent } from "@/middlewares/traceparent"
 import { logger } from "@/middlewares/logger"
+
 import { extract } from "@/lib/valibot"
+import { urls } from "@/schemas"
+import { routes } from "./routes"
 
 import type { AppEnv } from "@/types"
 
@@ -36,6 +38,8 @@ app.use(logger({ appName: "Author" }))
 app.get("/message", c => {
   return c.text("Hello Hono!")
 })
+
+app.route("/", routes)
 
 app.notFound(c => {
   return c.text("Not found", 404)
