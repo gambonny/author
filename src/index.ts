@@ -6,30 +6,28 @@ import { trimTrailingSlash } from "hono/trailing-slash"
 import { uaBlocker } from "@hono/ua-blocker"
 import { aiBots, useAiRobotsTxt } from "@hono/ua-blocker/ai-bots"
 
-import { extractOrigins } from "@/schemas"
+import { urls } from "@/schemas"
 import { tao } from "@/middlewares/tao"
 import { traceparent } from "@/middlewares/traceparent"
 import { logger } from "@/middlewares/logger"
+import { extract } from "@/lib/valibot"
+
 import type { AppEnv } from "@/types"
 
-const {
-  success,
-  output: origin,
-  issues,
-} = extractOrigins(env.ALLOWED_ORIGINS.split(","))
+const { success, output: origins } = extract(urls).from(
+  env.ALLOWED_ORIGINS.split(","),
+  issues => console.error(issues),
+)
 
-if (!success) {
-  console.warn("config.origin.invalid", { issues })
-  throw new Error("Invalid Origins")
-}
+if (!success) throw new Error("Origins invalid")
 
 const app = new Hono<AppEnv>()
 
 app.use(uaBlocker({ blocklist: aiBots }))
 app.use("/robots.txt", useAiRobotsTxt())
 
-app.use(cors({ origin, credentials: true }))
-app.use(tao({ origin }))
+app.use(cors({ origin: origins, credentials: true }))
+app.use(tao({ origin: origins }))
 
 app.use(traceparent())
 app.use(trimTrailingSlash())
