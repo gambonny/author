@@ -1,0 +1,24 @@
+{
+  "name": "creator",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --minify",
+    "check": "pnpm biome check",
+    "format": "pnpm biome format --write",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
+  },
+  "dependencies": {
+    "@gambonny/cflo": "^0.0.14",
+    "@hono/ua-blocker": "^0.1.6",
+    "hono": "^4.8.5",
+    "valibot": "^1.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.1.2",
+    "lefthook": "^1.12.2",
+    "wrangler": "^4.26.0"
+  },
+  "packageManager": "pnpm@10.13.1+sha512.37ebf1a5c7a30d5fabe0c5df44ee8da4c965ca0c5af3dbab28c3a1681b70a256218d05c81c9c0dcf767ef6b8551eb5b960042b9ed4300c59242336377e01cfad"
+}
