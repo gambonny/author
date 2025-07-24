@@ -10,6 +10,7 @@ import { extractOrigins } from "@/schemas"
 import { tao } from "@/middlewares/tao"
 import { traceparent } from "@/middlewares/traceparent"
 import { logger } from "@/middlewares/logger"
+import type { AppEnv } from "@/types"
 
 const {
   success,
@@ -22,10 +23,7 @@ if (!success) {
   throw new Error("Invalid Origins")
 }
 
-const app = new Hono<{
-  Bindings: CloudflareBindings
-  Variables: { traceparent: string }
-}>()
+const app = new Hono<AppEnv>()
 
 app.use(uaBlocker({ blocklist: aiBots }))
 app.use("/robots.txt", useAiRobotsTxt())
