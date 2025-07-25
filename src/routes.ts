@@ -3,12 +3,12 @@ import { timing } from "hono/timing"
 import { validator } from "hono/validator"
 import { extract } from "@gambonny/valext"
 
-import { credentials } from "@/lib/auth/schemas"
+import { credentials } from "@/schemas"
 import type { AppEnv } from "@/types"
 
-export const signupRoute = new Hono<AppEnv>()
+export const routes = new Hono<AppEnv>()
 
-signupRoute.post(
+routes.post(
   "/signup",
   timing({ totalDescription: "signup-request" }),
   validator("json", async (body, c) => {

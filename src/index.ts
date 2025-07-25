@@ -7,10 +7,7 @@ import { uaBlocker } from "@hono/ua-blocker"
 import { aiBots, useAiRobotsTxt } from "@hono/ua-blocker/ai-bots"
 import { extract } from "@gambonny/valext"
 
-import { tao } from "@/middlewares/tao"
-import { traceparent } from "@/middlewares/traceparent"
-import { logger } from "@/middlewares/logger"
-
+import { tao, logger, traceparent } from "@/middlewares"
 import { urls } from "@/schemas"
 import { routes } from "@/routes"
 
@@ -34,10 +31,6 @@ app.use(tao({ origin: origins }))
 app.use(traceparent())
 app.use(trimTrailingSlash())
 app.use(logger({ appName: "Author" }))
-
-app.get("/message", c => {
-  return c.text("Hello Hono!")
-})
 
 app.route("/", routes)
 
