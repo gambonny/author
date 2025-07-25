@@ -11,6 +11,9 @@ importers:
       '@gambonny/cflo':
         specifier: ^0.0.14
         version: 0.0.14(hono@4.8.5)
+      '@gambonny/valext':
+        specifier: ^0.1.0
+        version: 0.1.0(valibot@1.1.0)
       '@hono/ua-blocker':
         specifier: ^0.1.6
         version: 0.1.6(hono@4.8.5)
@@ -293,6 +296,11 @@ packages:
     peerDependenciesMeta:
       hono:
         optional: true
+
+  '@gambonny/valext@0.1.0':
+    resolution: {integrity: sha512-bqyqQdvIVSvjqb7VioLpA9NL+bsogA0MAHmdlaCMnc7WBKHsPtWj7K902GdheL+x38HPIVn/K8Cq8a9lO3zpjQ==}
+    peerDependencies:
+      valibot: ^1.1.0
 
   '@hono/ua-blocker@0.1.6':
     resolution: {integrity: sha512-R6KAjB9D37/Lork2XEFwErp9k9DfvTNrKxS48BoIr3N0+p2zGoln6yU5zk2CFd7pNcELQ/FOjfRD8kc5lxpT5g==}
@@ -804,6 +812,10 @@ snapshots:
       hono: 4.8.5
     transitivePeerDependencies:
       - typescript
+
+  '@gambonny/valext@0.1.0(valibot@1.1.0)':
+    dependencies:
+      valibot: 1.1.0
 
   '@hono/ua-blocker@0.1.6(hono@4.8.5)':
     dependencies:

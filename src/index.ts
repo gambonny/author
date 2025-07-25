@@ -5,12 +5,12 @@ import { cors } from "hono/cors"
 import { trimTrailingSlash } from "hono/trailing-slash"
 import { uaBlocker } from "@hono/ua-blocker"
 import { aiBots, useAiRobotsTxt } from "@hono/ua-blocker/ai-bots"
+import { extract } from "@gambonny/valext"
 
 import { tao } from "@/middlewares/tao"
 import { traceparent } from "@/middlewares/traceparent"
 import { logger } from "@/middlewares/logger"
 
-import { extract } from "@/lib/valibot"
 import { urls } from "@/schemas"
 import { routes } from "@/routes"
 

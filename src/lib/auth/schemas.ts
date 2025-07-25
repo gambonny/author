@@ -12,7 +12,7 @@ export const passwordField = v.pipe(
   v.minLength(8, "Password must be at least 8 characters long"),
 )
 
-export const signupPayload = v.object({
+export const credentials = v.strictObject({
   email: emailField,
   password: passwordField,
 })
