@@ -4,7 +4,7 @@ import { validator } from "hono/validator"
 import { extract } from "@gambonny/valext"
 
 import { credentials } from "@/schemas"
-import type { AppEnv } from "@/types"
+import type { AppEnv, Credentials } from "@/types"
 
 export const routes = new Hono<AppEnv>()
 
@@ -23,11 +23,13 @@ routes.post(
         }),
     )
 
-    if (!success) return c.text("Invalid input")
+    if (!success) return c.var.withError("invalid input")
 
     return output
   }),
   async (c): Promise<Response> => {
-    return c.text("holi")
+    const { email, password } = c.req.valid("json") as Credentials
+
+    return c.var.withSuccess(`${email} - ${password}`)
   },
 )

@@ -46,17 +46,10 @@ migrations/
   0001_initial.sql
 src/
   lib/
-    auth/
-      schemas.ts
-  middlewares/
-    logger.ts
-    tao.ts
-    traceparent.ts
-  routes/
-    auth/
-      signup.ts
-    index.ts
+    httpResponseMaker.ts
   index.ts
+  middlewares.ts
+  routes.ts
   schemas.ts
   types.ts
 .gitignore
@@ -72,6 +65,100 @@ wrangler.jsonc
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="src/lib/httpResponseMaker.ts">
+import type { Context } from "hono"
+import type { ContentfulStatusCode } from "hono/utils/http-status"
+import type { ValidationIssues } from "@/types"
+
+interface SuccessPayload<T> {
+  status: "success"
+  message: string
+  resource_url: string
+  data?: T
+}
+
+interface ErrorPayload {
+  status: "error"
+  message: string
+  resource_url: string
+  issues?: ValidationIssues
+}
+
+function isSuccess<T>(
+  type: "success" | "error",
+  dataOrIssues: T | ValidationIssues,
+): dataOrIssues is T {
+  return type === "success"
+}
+
+function buildPayload<T>(
+  c: Context,
+  type: "success",
+  message: string,
+  data?: T,
+): SuccessPayload<T>
+
+function buildPayload(
+  c: Context,
+  type: "error",
+  message: string,
+  issues?: ValidationIssues,
+): ErrorPayload
+
+function buildPayload<T>(
+  c: Context,
+  type: "success" | "error",
+  message: string,
+  dataOrIssues?: T | ValidationIssues,
+): SuccessPayload<T> | ErrorPayload {
+  const { origin, pathname } = new URL(c.req.url)
+  const base = { status: type, message, resource_url: origin + pathname }
+
+  if (isSuccess(type, dataOrIssues)) {
+    return {
+      ...base,
+      ...(dataOrIssues && Object.keys(dataOrIssues).length > 0
+        ? { data: dataOrIssues }
+        : {}),
+    }
+  }
+
+  return {
+    ...base,
+    issues: dataOrIssues,
+  }
+}
+
+export type WithSuccessFn = <T>(
+  msg: string,
+  data?: T,
+  statusCode?: ContentfulStatusCode,
+) => Response
+
+export type WithErrorFn = (
+  msg: string,
+  issues?: ValidationIssues,
+  statusCode?: ContentfulStatusCode,
+) => Response
+
+export function makeHttpResponse(c: Context): {
+  withSuccess: WithSuccessFn
+  withError: WithErrorFn
+} {
+  const withSuccess: WithSuccessFn = (message, data, status = 200) => {
+    const payload = buildPayload(c, "success", message, data)
+    return c.json(payload, status)
+  }
+
+  const withError: WithErrorFn = (message, issues, status = 400) => {
+    const payload = buildPayload(c, "error", message, issues)
+    return c.json(payload, status)
+  }
+
+  return { withSuccess, withError }
+}
+</file>
 
 <file path="https/signup.posting.yaml">
 name: Signup
@@ -107,51 +194,10 @@ CREATE TABLE users (
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 </file>
 
-<file path="src/middlewares/logger.ts">
+<file path="src/middlewares.ts">
 import { useLogger } from "@gambonny/cflo"
 import { createMiddleware } from "hono/factory"
-
-export function logger({ appName }: { appName: string }) {
-  return createMiddleware(async (c, next) =>
-    useLogger({
-      level: c.env.LOG_LEVEL,
-      format: c.env.LOG_FORMAT,
-      context: {
-        appName,
-        deployId: c.env.CF_VERSION_METADATA.id,
-        traceparent: c.get("traceparent"),
-      },
-    })(c, next),
-  )
-}
-</file>
-
-<file path="src/middlewares/tao.ts">
-import { createMiddleware } from "hono/factory"
-
-interface TaoOptions {
-  origin: string | ReadonlyArray<string>
-}
-
-/**
- * Middleware to append `Timing-Allow-Origin` headers.
- */
-export function tao({ origin }: TaoOptions) {
-  const origins = Array.isArray(origin) ? origin : [origin]
-
-  return createMiddleware(async (c, next) => {
-    for (const o of origins) {
-      if (!o) continue
-      c.header("Timing-Allow-Origin", o, { append: true })
-    }
-
-    await next()
-  })
-}
-</file>
-
-<file path="src/middlewares/traceparent.ts">
-import { createMiddleware } from "hono/factory"
+import { makeHttpResponse } from "@/lib/httpResponseMaker"
 
 /**
  * Middleware that enforces presence of the `traceparent` header.
@@ -187,50 +233,89 @@ export function traceparent() {
     await next()
   })
 }
+
+interface TaoOptions {
+  origin: string | ReadonlyArray<string>
+}
+
+/**
+ * Middleware to append `Timing-Allow-Origin` headers.
+ */
+export function tao({ origin }: TaoOptions) {
+  const origins = Array.isArray(origin) ? origin : [origin]
+
+  return createMiddleware(async (c, next) => {
+    for (const o of origins) {
+      if (!o) continue
+      c.header("Timing-Allow-Origin", o, { append: true })
+    }
+
+    await next()
+  })
+}
+
+export function logger({ appName }: { appName: string }) {
+  return createMiddleware(async (c, next) =>
+    useLogger({
+      level: c.env.LOG_LEVEL,
+      format: c.env.LOG_FORMAT,
+      context: {
+        appName,
+        deployId: c.env.CF_VERSION_METADATA.id,
+        traceparent: c.get("traceparent"),
+      },
+    })(c, next),
+  )
+}
+
+export function responseMaker() {
+  return createMiddleware((c, next) => {
+    const { withSuccess, withError } = makeHttpResponse(c)
+
+    c.set("withSuccess", withSuccess)
+    c.set("withError", withError)
+
+    return next()
+  })
+}
 </file>
 
-<file path="src/routes/index.ts">
+<file path="src/routes.ts">
 import { Hono } from "hono"
-import { signupRoute } from "./auth/signup"
+import { timing } from "hono/timing"
+import { validator } from "hono/validator"
+import { extract } from "@gambonny/valext"
 
-export const routes = new Hono()
-routes.route("/", signupRoute)
-</file>
+import { credentials } from "@/schemas"
+import type { AppEnv, Credentials } from "@/types"
 
-<file path=".gitignore">
-# prod
-dist/
+export const routes = new Hono<AppEnv>()
 
-# dev
-.yarn/
-!.yarn/releases
-.vscode/*
-!.vscode/launch.json
-!.vscode/*.code-snippets
-.idea/workspace.xml
-.idea/usage.statistics.xml
-.idea/shelf
+routes.post(
+  "/signup",
+  timing({ totalDescription: "signup-request" }),
+  validator("json", async (body, c) => {
+    const { success, output } = extract(credentials).from(body, issues =>
+      c.var
+        .getLogger({ route: "author.signup.validator" })
+        .warn("signup:validation:failed", {
+          event: "validation.failed",
+          scope: "validator.schema",
+          input: body,
+          issues,
+        }),
+    )
 
-# deps
-node_modules/
-.wrangler
+    if (!success) return c.text("Invalid input")
 
-# env
-.env
-.env.production
-.dev.vars
+    return output
+  }),
+  async (c): Promise<Response> => {
+    const { email, password } = c.req.valid("json") as Credentials
 
-# logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# misc
-.DS_Store
+    return c.var.withSuccess(`${email} - ${password}`)
+  },
+)
 </file>
 
 <file path="biome.json">
@@ -7689,61 +7774,35 @@ declare abstract class WorkflowInstance {
 }
 </file>
 
-<file path="src/lib/auth/schemas.ts">
+<file path="src/types.ts">
+import type { GetLoggerFn } from "@gambonny/cflo"
+import type { TimingVariables } from "hono/timing"
 import * as v from "valibot"
 
-export const emailField = v.pipe(
-  v.string(),
-  v.trim(),
-  v.nonEmpty("Email is required"),
-  v.email(),
-)
+import { credentials } from "@/schemas"
+import type { WithErrorFn, WithSuccessFn } from "@/lib/httpResponseMaker"
 
-export const passwordField = v.pipe(
-  v.string(),
-  v.minLength(8, "Password must be at least 8 characters long"),
-)
+export interface AppEnv extends TimingVariables {
+  Bindings: CloudflareBindings
+  Variables: {
+    traceparent: string
+    getLogger: GetLoggerFn
+    withSuccess: WithSuccessFn
+    withError: WithErrorFn
+  }
+}
 
-export const credentials = v.strictObject({
-  email: emailField,
-  password: passwordField,
-})
+export type ValidationIssues = ReturnType<typeof v.flatten>["nested"]
+
+export type Credentials = v.InferInput<typeof credentials>
 </file>
 
-<file path="src/routes/auth/signup.ts">
-import { Hono } from "hono"
-import { timing } from "hono/timing"
-import { validator } from "hono/validator"
-import { extract } from "@gambonny/valext"
-
-import { credentials } from "@/lib/auth/schemas"
-import type { AppEnv } from "@/types"
-
-export const signupRoute = new Hono<AppEnv>()
-
-signupRoute.post(
-  "/signup",
-  timing({ totalDescription: "signup-request" }),
-  validator("json", async (body, c) => {
-    const { success, output } = extract(credentials).from(body, issues =>
-      c.var
-        .getLogger({ route: "author.signup.validator" })
-        .warn("signup:validation:failed", {
-          event: "validation.failed",
-          scope: "validator.schema",
-          input: body,
-          issues,
-        }),
-    )
-
-    if (!success) return c.text("Invalid input")
-
-    return output
-  }),
-  async (c): Promise<Response> => {
-    return c.text("holi")
-  },
-)
+<file path="pnpm-workspace.yaml">
+onlyBuiltDependencies:
+  - esbuild
+  - lefthook
+  - sharp
+  - workerd
 </file>
 
 <file path="src/schemas.ts">
@@ -7753,27 +7812,58 @@ export const urls = v.pipe(
   v.array(v.pipe(v.string(), v.trim(), v.url())),
   v.minLength(1, "At least one valid url is required"),
 )
+
+// Fields
+export const email = v.pipe(
+  v.string(),
+  v.trim(),
+  v.nonEmpty("Email is required"),
+  v.email(),
+)
+
+export const password = v.pipe(
+  v.string(),
+  v.minLength(8, "Password must be at least 8 characters long"),
+)
+
+// Auth
+export const credentials = v.strictObject({ email, password })
 </file>
 
-<file path="src/types.ts">
-import type { GetLoggerFn } from "@gambonny/cflo"
-import type { TimingVariables } from "hono/timing"
+<file path=".gitignore">
+# prod
+dist/
 
-export interface AppEnv extends TimingVariables {
-  Bindings: CloudflareBindings
-  Variables: {
-    traceparent: string
-    getLogger: GetLoggerFn
-  }
-}
-</file>
+# dev
+.yarn/
+!.yarn/releases
+.vscode/*
+!.vscode/launch.json
+!.vscode/*.code-snippets
+.idea/workspace.xml
+.idea/usage.statistics.xml
+.idea/shelf
 
-<file path="pnpm-workspace.yaml">
-onlyBuiltDependencies:
-  - esbuild
-  - lefthook
-  - sharp
-  - workerd
+# deps
+node_modules/
+.wrangler
+
+# env
+.env
+.env.production
+.dev.vars
+
+# logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# misc
+.DS_Store
 </file>
 
 <file path="package.json">
@@ -7841,10 +7931,7 @@ import { uaBlocker } from "@hono/ua-blocker"
 import { aiBots, useAiRobotsTxt } from "@hono/ua-blocker/ai-bots"
 import { extract } from "@gambonny/valext"
 
-import { tao } from "@/middlewares/tao"
-import { traceparent } from "@/middlewares/traceparent"
-import { logger } from "@/middlewares/logger"
-
+import { tao, logger, traceparent, responseMaker } from "@/middlewares"
 import { urls } from "@/schemas"
 import { routes } from "@/routes"
 
@@ -7868,10 +7955,7 @@ app.use(tao({ origin: origins }))
 app.use(traceparent())
 app.use(trimTrailingSlash())
 app.use(logger({ appName: "Author" }))
-
-app.get("/message", c => {
-  return c.text("Hello Hono!")
-})
+app.use(responseMaker())
 
 app.route("/", routes)
 
