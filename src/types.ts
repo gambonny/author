@@ -2,6 +2,7 @@ import type { GetLoggerFn } from "@gambonny/cflo"
 import type { TimingVariables } from "hono/timing"
 import type * as v from "valibot"
 
+import type { makeHasher } from "@/lib/hasher"
 import type { credentials } from "@/schemas"
 import type { WithErrorFn, WithSuccessFn } from "@/lib/httpResponseMaker"
 
@@ -12,6 +13,7 @@ export interface AppEnv extends TimingVariables {
     getLogger: GetLoggerFn
     withSuccess: WithSuccessFn
     withError: WithErrorFn
+    hash: ReturnType<typeof makeHasher>
   }
 }
 

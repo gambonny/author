@@ -7,7 +7,13 @@ import { uaBlocker } from "@hono/ua-blocker"
 import { aiBots, useAiRobotsTxt } from "@hono/ua-blocker/ai-bots"
 import { extract } from "@gambonny/valext"
 
-import { tao, logger, traceparent, responseMaker } from "@/middlewares"
+import {
+  tao,
+  logger,
+  traceparent,
+  responseMaker,
+  hasherMaker,
+} from "@/middlewares"
 import { urls } from "@/schemas"
 import { routes } from "@/routes"
 
@@ -32,6 +38,7 @@ app.use(traceparent())
 app.use(trimTrailingSlash())
 app.use(logger({ appName: "Author" }))
 app.use(responseMaker())
+app.use(hasherMaker())
 
 app.route("/", routes)
 
