@@ -1,6 +1,9 @@
 import { useLogger } from "@gambonny/cflo"
 import { createMiddleware } from "hono/factory"
+
 import { makeHttpResponse } from "@/lib/httpResponseMaker"
+import { makeHasher } from "@/lib/hasher"
+import type { AppEnv } from "@/types"
 
 /**
  * Middleware that enforces presence of the `traceparent` header.
@@ -81,3 +84,16 @@ export function responseMaker() {
     return next()
   })
 }
+
+export const hasherMaker = () =>
+  createMiddleware<AppEnv>(async (c, next) => {
+    const pepper = c.env.HASH_PEPPER
+
+    if (!pepper) {
+      console.error("HASH_PEPPER env var missing")
+      return c.text("Internal error", 500)
+    }
+
+    c.set("hash", makeHasher(pepper))
+    await next()
+  })
