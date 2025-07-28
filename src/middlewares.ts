@@ -1,4 +1,5 @@
 import { createMiddleware } from "hono/factory"
+import { getCookie } from "hono/cookie"
 
 import { useLogger } from "@gambonny/cflo"
 import { backOff, type BackoffOptions } from "exponential-backoff"
@@ -114,3 +115,39 @@ export function backoffMaker(defaultOptions: BackoffOptions) {
     await next()
   })
 }
+
+const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
+  if (!c.var.getLogger || !c.var.http) {
+    throw new Error("authMiddleware mis‑ordered: logger/responder missing")
+  }
+
+  const logger = c.var.getLogger({ route: "author.middleware.auth" })
+  const { http } = c.var
+
+  const token = getCookie(c, "token")
+  if (!token) {
+    logger.warn("auth:missing-token", {
+      event: "auth.missing_token",
+      scope: "pre.tokenator.validation",
+      path: c.req.path,
+    })
+
+    return http.error("Unauthorized", {}, 401)
+  }
+
+  const isValid = await c.env.TOKENATOR.decodeToken(token)
+
+  if (!isValid) {
+    logger.warn("auth:invalid-token", {
+      event: "auth.invalid_token",
+      scope: "post.tokenator.validation",
+      path: c.req.path,
+    })
+
+    return http.error("Unauthorized", {}, 401)
+  }
+
+  await next()
+})
+
+export default authMiddleware

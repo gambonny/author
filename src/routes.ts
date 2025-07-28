@@ -10,7 +10,8 @@ import { Temporal } from "@js-temporal/polyfill"
 import { credentials, otpPayload } from "@/schemas"
 import { hashPassword, salt } from "@/lib/crypto"
 import { generateOtp, storeOtp, verifyOtp } from "@/lib/otp"
-import { issueAuthCookies } from "@/lib/cookies"
+import { clearAuthCookies, issueAuthCookies } from "@/lib/cookies"
+import authMiddleware from "@/middlewares"
 import type { AppEnv, Credentials, JwtValue, OtpPayload } from "@/types"
 
 export const routes = new Hono<AppEnv>()
@@ -493,5 +494,28 @@ routes.post(
 
       return http.error("unknown error", 500)
     }
+  },
+)
+
+routes.post(
+  "/logout",
+  timing({ totalDescription: "logout-request" }),
+  authMiddleware,
+  async c => {
+    const logger = c.var.getLogger({ route: "auth.logout.handler" })
+
+    logger.debug("user:logout", {
+      event: "logout.started",
+      scope: "auth.session",
+    })
+
+    clearAuthCookies(c)
+
+    logger.log("user:logout:success", {
+      event: "logout.success",
+      scope: "auth.session",
+    })
+
+    return c.var.http.success("Logged out")
   },
 )
