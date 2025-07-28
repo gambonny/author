@@ -294,55 +294,6 @@ routes.post(
     }
   },
 )
-routes.post(
-  "/me",
-  timing({ totalDescription: "me-request" }),
-  async (c): Promise<Response> => {
-    const logger = c.var.getLogger({ route: "author.me.handler" })
-    const token = getCookie(c, "token")
-    const { http } = c.var
-
-    if (!token) {
-      logger.log("token:not:present")
-      return http.error("issues with token", {}, 401)
-    }
-
-    try {
-      const user = await c.var.backoff<JwtValue | false>(
-        () => c.env.TOKENATOR.decodeToken(token),
-        {
-          retry: (err, attempt) => {
-            const isNetworkError = err instanceof TypeError
-            const isServerError = err?.status >= 500
-
-            if (isNetworkError || isServerError) {
-              logger.warn("sentinel.validateToken retry", {
-                attempt,
-                error: err.message,
-              })
-              return true
-            }
-
-            return false
-          },
-        },
-      )
-
-      if (!user) {
-        logger.error("invalid:token", { token })
-        return http.error("token invalid", {}, 401)
-      }
-
-      return http.success("token active", user)
-    } catch (e: unknown) {
-      logger.error("error:validating:token", {
-        error: e instanceof Error ? e.message : String(e),
-      })
-
-      return http.error("an unknown error occurred", {}, 500)
-    }
-  },
-)
 
 routes.post(
   "/me",
