@@ -6,13 +6,21 @@ import { getCookie } from "hono/cookie"
 import { extract } from "@gambonny/valext"
 import { sign as jwtSign } from "@tsndr/cloudflare-worker-jwt"
 import { Temporal } from "@js-temporal/polyfill"
+import { Resend } from "resend"
 
-import { credentials, otpPayload } from "@/schemas"
-import { hashPassword, salt } from "@/lib/crypto"
+import { credentials, otpPayload, rememberEmail } from "@/schemas"
+import { hashPassword, salt, sha256hex } from "@/lib/crypto"
 import { generateOtp, storeOtp, verifyOtp } from "@/lib/otp"
 import { clearAuthCookies, issueAuthCookies } from "@/lib/cookies"
+import { storeToken } from "@/lib/rememberPassword"
 import authMiddleware from "@/middlewares"
-import type { AppEnv, Credentials, JwtValue, OtpPayload } from "@/types"
+import type {
+  AppEnv,
+  Credentials,
+  JwtValue,
+  OtpPayload,
+  RememberEmail,
+} from "@/types"
 
 export const routes = new Hono<AppEnv>()
 
@@ -468,5 +476,141 @@ routes.post(
     })
 
     return c.var.http.success("Logged out")
+  },
+)
+
+routes.post(
+  "/password/remember",
+  timing({ totalDescription: "password-remember-request" }),
+  validator("json", async (body, c) => {
+    const { success, output } = extract(rememberEmail).from(body, issues => {
+      c.var
+        .getLogger({ route: "author.forgot.validator" })
+        .warn("password:forgot:validation:failed", {
+          event: "validation.failed",
+          scope: "validator.schema",
+          input: body,
+          issues,
+        })
+    })
+
+    if (!success) return c.var.responder.error("Invalid input")
+
+    return output
+  }),
+  async (c): Promise<Response> => {
+    const { http } = c.var
+    const { email } = c.req.valid("json") as RememberEmail
+
+    const logger = c.var.getLogger({
+      route: "author.remember.password.handler",
+      hashed_email: c.var.hash(email),
+    })
+
+    logger.info("remember:password:started", {
+      event: "handler.started",
+      scope: "auth.password",
+    })
+
+    const rawToken = crypto.randomUUID()
+    const tokenHash = await sha256hex(rawToken)
+
+    try {
+      const stored = await c.var.backoff(
+        () =>
+          storeToken(c.env, email, tokenHash, issues => {
+            logger.error("password:forgot:token-store-schema-failed", {
+              event: "kv.password.schema.failed",
+              scope: "kv.password",
+              issues,
+            })
+          }),
+        {
+          retry: (err, attempt) => {
+            logger.debug("token-store-retry", {
+              attempt,
+              error: err instanceof Error ? err.message : String(err),
+            })
+
+            return true
+          },
+        },
+      )
+
+      if (!stored) {
+        return http.error(
+          "Failed to generate reset token, please try again later",
+          {},
+          500,
+        )
+      }
+    } catch (e: unknown) {
+      logger.error("token-store-failed", {
+        event: "kv.password.store.failed",
+        scope: "kv.password",
+        error: e instanceof Error ? e.message : String(e),
+      })
+
+      return http.error(
+        "Failed to generate reset token, please try again later",
+        {},
+        500,
+      )
+    }
+
+    logger.info("password:forgot:token-generated", {
+      event: "token.generated",
+      scope: "kv.password",
+    })
+
+    try {
+      const resend = new Resend(c.env.RESEND)
+      const { error } = await c.var.backoff(
+        () =>
+          resend.emails.send({
+            from: "me@mail.gambonny.com",
+            to: "gambonny@gmail.com",
+            subject: "Your password reset token",
+            html: `<p>Your reset token is <strong>${rawToken}</strong>. It expires in 1 hour.</p>`,
+          }),
+        {
+          retry: (err, attempt) => {
+            const msg = err instanceof Error ? err.message : String(err)
+            const isTransient =
+              msg.includes("429") ||
+              msg.includes("timeout") ||
+              /^5\d\d/.test(msg)
+
+            if (isTransient) {
+              logger.debug("email-retry", {
+                attempt,
+                error: msg,
+              })
+            }
+
+            return isTransient
+          },
+        },
+      )
+
+      if (error) throw new Error(error.message)
+
+      return http.success(
+        "If that email is registered, you’ll receive reset instructions shortly",
+        201,
+      )
+    } catch (err: unknown) {
+      logger.error("email-send-failed", {
+        event: "email.send.failed",
+        scope: "auth.password",
+        error: err instanceof Error ? err.message : String(err),
+      })
+
+      return http.error(
+        "Failed to send reset email, please try again later",
+        {},
+        500,
+      )
+    }
   },
 )

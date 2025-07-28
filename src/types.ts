@@ -4,8 +4,13 @@ import type * as v from "valibot"
 import type { Context } from "hono"
 
 import type { makeHasher } from "@/lib/hasher"
-import type { credentials, jwtValue, otpPayload } from "@/schemas"
 import type { ErrorFn, SuccessFn } from "@/lib/httpResponseMaker"
+import type {
+  credentials,
+  jwtValue,
+  otpPayload,
+  rememberEmail,
+} from "@/schemas"
 import type { BackoffFn } from "@/middlewares"
 
 export interface AppEnv extends TimingVariables {
@@ -26,3 +31,4 @@ export type OnValidationErrorCallback = (issues: ValidationIssues) => void
 export type Credentials = v.InferInput<typeof credentials>
 export type OtpPayload = v.InferOutput<typeof otpPayload>
 export type JwtValue = v.InferOutput<typeof jwtValue>
+export type RememberEmail = v.InferOutput<typeof rememberEmail>

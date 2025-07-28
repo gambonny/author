@@ -19,12 +19,13 @@ export const password = v.pipe(
 )
 
 export const otpCode = v.pipe(v.string(), v.length(8))
+const token = v.pipe(v.string(), v.trim(), v.minLength(10))
 
 // Auth
 export const credentials = v.strictObject({ email, password })
 export const jwtValue = v.object({
   id: v.number(),
-  email: email,
+  email,
   exp: v.number(),
   iat: v.number(),
 })
@@ -43,3 +44,7 @@ export const otpPayload = v.object({
   email: email,
   otp: otpCode,
 })
+
+// Remember password
+export const rememberEmail = v.object({ email })
+export const resetPasswordRecord = v.object({ token, email })
