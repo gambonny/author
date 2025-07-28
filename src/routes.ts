@@ -2,15 +2,16 @@ import { Hono } from "hono"
 import { timing, setMetric } from "hono/timing"
 import { validator } from "hono/validator"
 import { getCookie } from "hono/cookie"
+
 import { extract } from "@gambonny/valext"
 import { sign as jwtSign } from "@tsndr/cloudflare-worker-jwt"
+import { Temporal } from "@js-temporal/polyfill"
 
 import { credentials, otpPayload } from "@/schemas"
 import { hashPassword, salt } from "@/lib/crypto"
 import { generateOtp, storeOtp, verifyOtp } from "@/lib/otp"
 import { issueAuthCookies } from "@/lib/cookies"
 import type { AppEnv, Credentials, JwtValue, OtpPayload } from "@/types"
-import { Temporal } from "@js-temporal/polyfill"
 
 export const routes = new Hono<AppEnv>()
 
@@ -227,7 +228,7 @@ routes.post(
         "SELECT id FROM users WHERE email = ?  AND active = false",
       )
         .bind(email)
-        .first<{ id: string }>()
+        .first<{ id: number }>()
 
       if (!user) {
         logger.warn("user:get:failed", {
@@ -332,8 +333,10 @@ routes.post(
       }
 
       return http.success("token active", user)
-    } catch (err: unknown) {
-      logger.error("error:validating:token", { error: (err as Error).message })
+    } catch (e: unknown) {
+      logger.error("error:validating:token", {
+        error: e instanceof Error ? e.message : String(e),
+      })
 
       return http.error("an unknown error occurred", {}, 500)
     }
@@ -380,10 +383,115 @@ routes.post(
       }
 
       return http.success("token active", user)
-    } catch (err: unknown) {
-      logger.error("error:validating:token", { error: (err as Error).message })
+    } catch (e: unknown) {
+      logger.error("error:validating:token", {
+        error: e instanceof Error ? e.message : String(e),
+      })
 
       return http.error("an unknown error occurred", {}, 500)
+    }
+  },
+)
+
+routes.post(
+  "/login",
+  timing({ totalDescription: "login-request" }),
+  validator("json", async (body, c) => {
+    const { success, output } = extract(credentials).from(body, issues => {
+      c.var
+        .getLogger({ route: "author.login.validator" })
+        .warn("login:validation:failed", {
+          event: "validation.failed",
+          scope: "validator.schema",
+          input: output,
+          issues,
+        })
+    })
+
+    if (!success) return c.var.responder.error("Invalid input")
+
+    return output
+  }),
+  async (c): Promise<Response> => {
+    const { http } = c.var
+    const { email, password } = c.req.valid("json") as Credentials
+
+    const logger = c.var.getLogger({
+      route: "author.login.handler",
+      hashed_email: c.var.hash(email),
+    })
+
+    logger.debug("login:started", {
+      event: "login.attempt",
+      scope: "auth.session",
+    })
+
+    const row = await c.env.DB.prepare(
+      `SELECT id, password_hash, salt, active
+         FROM users
+        WHERE email = ?`,
+    )
+      .bind(email)
+      .first<{
+        id: number
+        password_hash: string
+        salt: string
+        active: number
+      }>()
+
+    if (!row || row.active !== 1) {
+      logger.warn("email:not:found", {
+        event: "email.not.found",
+        scope: "db.users",
+        reason: "user doesn't exist in the database",
+      })
+
+      return http.error("Invalid email or password", {}, 401)
+    }
+
+    const computed = await hashPassword(password, row.salt)
+    if (computed !== row.password_hash) {
+      logger.warn("login:failed", {
+        event: "login.invalid-credentials",
+        scope: "auth.session",
+      })
+
+      return http.error("Invalid email or password", {}, 401)
+    }
+
+    const now = Math.floor(Date.now() / 1000)
+    const accessPayload = {
+      id: row.id,
+      email,
+      exp: now + 60 * 60,
+      iat: now,
+    } satisfies JwtValue
+
+    const refreshPayload = {
+      id: row.id,
+      email,
+      exp: now + 60 * 60,
+      iat: now,
+    } satisfies JwtValue
+
+    try {
+      const accessToken = await jwtSign(accessPayload, c.env.JWT_SECRET)
+      const refreshToken = await jwtSign(refreshPayload, c.env.JWT_SECRET)
+      issueAuthCookies(c, accessToken, refreshToken)
+
+      logger.info("login:success", {
+        event: "login.success",
+        scope: "auth.session",
+        input: { userId: row.id },
+      })
+
+      return http.success("Logged in successfully")
+    } catch (e: unknown) {
+      logger.error("error:issuing:token", {
+        error: e instanceof Error ? e.message : String(e),
+      })
+
+      return http.error("unknown error", 500)
     }
   },
 )
