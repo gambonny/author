@@ -10,6 +10,7 @@ import type {
   jwtValue,
   otpPayload,
   rememberEmail,
+  resetPasswordPayload,
 } from "@/schemas"
 import type { BackoffFn } from "@/middlewares"
 
@@ -32,3 +33,4 @@ export type Credentials = v.InferInput<typeof credentials>
 export type OtpPayload = v.InferOutput<typeof otpPayload>
 export type JwtValue = v.InferOutput<typeof jwtValue>
 export type RememberEmail = v.InferOutput<typeof rememberEmail>
+export type ResetPasswordPayload = v.InferOutput<typeof resetPasswordPayload>

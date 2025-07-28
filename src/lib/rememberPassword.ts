@@ -30,6 +30,31 @@ export async function storeToken(
   return true
 }
 
+/**
+ * Verify a reset‐password token.
+ * @returns the email if valid, or false on expiration/invalid (and calls onError)
+ */
+export async function verifyToken(
+  env: Cloudflare.Env,
+  submitted: string,
+  onError?: OnValidationErrorCallback,
+): Promise<string | false> {
+  const key = resetTokenKey(submitted)
+
+  const { success, output } = extract(resetPasswordRecord).from(
+    await env.STORE.get(key, "json"),
+    issues => onError?.(issues),
+  )
+
+  if (!success) {
+    await env.STORE.delete(key)
+    return false
+  }
+
+  await env.STORE.delete(key)
+  return output.email
+}
+
 export function resetTokenKey(token: string) {
   return `reset:${token.trim().toLowerCase()}`
 }

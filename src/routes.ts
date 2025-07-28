@@ -8,11 +8,16 @@ import { sign as jwtSign } from "@tsndr/cloudflare-worker-jwt"
 import { Temporal } from "@js-temporal/polyfill"
 import { Resend } from "resend"
 
-import { credentials, otpPayload, rememberEmail } from "@/schemas"
+import {
+  credentials,
+  otpPayload,
+  rememberEmail,
+  resetPasswordPayload,
+} from "@/schemas"
 import { hashPassword, salt, sha256hex } from "@/lib/crypto"
 import { generateOtp, storeOtp, verifyOtp } from "@/lib/otp"
 import { clearAuthCookies, issueAuthCookies } from "@/lib/cookies"
-import { storeToken } from "@/lib/rememberPassword"
+import { resetTokenKey, storeToken, verifyToken } from "@/lib/rememberPassword"
 import authMiddleware from "@/middlewares"
 import type {
   AppEnv,
@@ -20,6 +25,7 @@ import type {
   JwtValue,
   OtpPayload,
   RememberEmail,
+  ResetPasswordPayload,
 } from "@/types"
 
 export const routes = new Hono<AppEnv>()
@@ -82,7 +88,7 @@ routes.post(
       logger.info("user:registration:success", {
         event: "db.insert.success",
         scope: "db.users",
-        input: { db: { DurableObject: dbResult.meta.duration } },
+        input: { db: { duration: dbResult.meta.duration } },
       })
 
       try {
@@ -612,5 +618,111 @@ routes.post(
         500,
       )
     }
+  },
+)
+
+routes.post(
+  "/password/reset",
+  timing({ totalDescription: "password-reset-request" }),
+  validator("json", async (body, c) => {
+    const { success, output } = extract(resetPasswordPayload).from(
+      body,
+      issues => {
+        c.var
+          .getLogger({ route: "author.reset.validator" })
+          .warn("password:reset:validation:failed", {
+            event: "validation.failed",
+            scope: "validator.schema",
+            input: body,
+            issues,
+          })
+      },
+    )
+
+    if (!success) return c.var.responder.error("Invalid input")
+
+    return output
+  }),
+  async (c): Promise<Response> => {
+    const { token, password } = c.req.valid("json") as ResetPasswordPayload
+    const { http } = c.var
+    const logger = c.var.getLogger({ route: "author.reset.handler" })
+
+    const hashedToken = await sha256hex(token)
+
+    let email: string | false
+    try {
+      email = await c.var.backoff(
+        () =>
+          verifyToken(c.env, hashedToken, issues => {
+            logger.warn("token:malformed", {
+              event: "reset-token.malformed",
+              scope: "kv.reset-token.schema",
+              issues,
+            })
+          }),
+        {
+          retry: (err, attempt) => {
+            logger.debug("token-verify-retry", {
+              attempt,
+              error: err instanceof Error ? err.message : String(err),
+            })
+
+            return true
+          },
+        },
+      )
+
+      if (!email) {
+        return http.error(
+          "Token has expired, please request a new one",
+          {},
+          410,
+        )
+      }
+    } catch (err: unknown) {
+      logger.error("token-verify-failed", {
+        event: "kv.password.verify.failed",
+        scope: "kv.password",
+        error: err instanceof Error ? err.message : String(err),
+      })
+
+      return http.error("Token verification failed, please try again", {}, 500)
+    }
+
+    const user = await c.env.DB.prepare(
+      "SELECT id, salt FROM users WHERE email = ?",
+    )
+      .bind(email)
+      .first<{ id: number; salt: string }>()
+
+    if (!user) {
+      logger.warn("user-notfound", {
+        event: "email.notfound",
+        scope: "db.users",
+      })
+
+      return http.error("User not found", {}, 404)
+    }
+
+    const passwordHash = await hashPassword(password, user.salt)
+    const result = await c.env.DB.prepare(
+      "UPDATE users SET password_hash = ? WHERE id = ?",
+    )
+      .bind(passwordHash, user.id)
+      .run()
+
+    setMetric(c, "db.duration", result.meta.duration)
+    logger.info("success", {
+      event: "password.reset.success",
+      scope: "db.users",
+      input: { db: { duration: result.meta.duration } },
+    })
+
+    try {
+      await c.env.STORE.delete(resetTokenKey(token))
+    } catch {}
+
+    return http.success("Password has been successfully reset")
   },
 )
