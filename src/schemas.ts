@@ -18,5 +18,17 @@ export const password = v.pipe(
   v.minLength(8, "Password must be at least 8 characters long"),
 )
 
+export const otpCode = v.pipe(v.string(), v.length(8))
+
 // Auth
 export const credentials = v.strictObject({ email, password })
+
+// Opt
+export const otpRecord = v.object({
+  otp: otpCode,
+  attempts: v.pipe(
+    v.number(),
+    v.minValue(0),
+    v.maxValue(2, "too many attempts"),
+  ),
+})
