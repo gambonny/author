@@ -2,22 +2,19 @@ import { WorkflowEntrypoint } from "cloudflare:workers"
 import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers"
 import { Resend } from "resend"
 
+import type { OtpPayload } from "@/types"
+
 type SignupWorkflowEnv = {
   THIS_WORKFLOW: Workflow
   RESEND: string
   DB: D1Database
 }
 
-type SignupWorkflowParams = {
-  email: string
-  otp: string
-}
-
 export class SignupWorkflow extends WorkflowEntrypoint<
   SignupWorkflowEnv,
-  SignupWorkflowParams
+  OtpPayload
 > {
-  async run(event: WorkflowEvent<SignupWorkflowParams>, step: WorkflowStep) {
+  async run(event: WorkflowEvent<OtpPayload>, step: WorkflowStep) {
     const { email, otp } = event.payload
 
     // Step 1: Send OTP email

@@ -22,6 +22,11 @@ export const otpCode = v.pipe(v.string(), v.length(8))
 
 // Auth
 export const credentials = v.strictObject({ email, password })
+export const jwtValue = v.object({
+  id: v.string(),
+  email: email,
+  exp: v.number(),
+})
 
 // Opt
 export const otpRecord = v.object({
@@ -31,4 +36,9 @@ export const otpRecord = v.object({
     v.minValue(0),
     v.maxValue(2, "too many attempts"),
   ),
+})
+
+export const otpPayload = v.object({
+  email: email,
+  otp: otpCode,
 })
