@@ -2,11 +2,13 @@ import { Hono } from "hono"
 import { timing, setMetric } from "hono/timing"
 import { validator } from "hono/validator"
 import { extract } from "@gambonny/valext"
+import { sign as jwtSign } from "@tsndr/cloudflare-worker-jwt"
 
-import { credentials } from "@/schemas"
-import type { AppEnv, Credentials } from "@/types"
+import { credentials, otpPayload } from "@/schemas"
 import { hashPassword, salt } from "@/lib/crypto"
-import { generateOtp, storeOtp } from "@/lib/otp"
+import { generateOtp, storeOtp, verifyOtp } from "@/lib/otp"
+import { issueAuthCookies } from "@/lib/cookies"
+import type { AppEnv, Credentials, JwtValue, OtpPayload } from "@/types"
 
 export const routes = new Hono<AppEnv>()
 
@@ -143,6 +145,146 @@ routes.post(
       })
 
       return http.error("unknown error", {}, 500)
+    }
+  },
+)
+
+routes.post(
+  "/otp/verify",
+  timing({ totalDescription: "otp-verify-request" }),
+  validator("json", async (body, c) => {
+    const { success, output } = extract(otpPayload).from(body, issues => {
+      c.var
+        .getLogger({ route: "author.otp.validator" })
+        .warn("otp:validation:failed", {
+          event: "validation.failed",
+          scope: "validator.schema",
+          input: body,
+          issues,
+        })
+    })
+
+    if (!success) return c.var.http.error("invalid input")
+
+    return output
+  }),
+  async (c): Promise<Response> => {
+    const { http } = c.var
+    const { email, otp } = c.req.valid("json") as OtpPayload
+
+    const logger = c.var.getLogger({
+      route: "otp.verify.handler",
+      hashed_email: c.var.hash(email),
+    })
+
+    logger.debug("otp:started", {
+      event: "handler.started",
+      scope: "handler.init",
+    })
+
+    try {
+      const verified = await c.var.backoff(
+        () =>
+          verifyOtp(c.env, email, otp, issues => {
+            logger.warn("otp:record:malformed", {
+              event: "otp.retrieval.failed",
+              scope: "otp.schema",
+              input: { otp },
+              issues,
+            })
+          }),
+        {
+          retry: (e, attempt) => {
+            logger.debug("otp:verification:attempt", {
+              input: otp,
+              attempt,
+              event: "otp.verification.attempt",
+              scope: "kv.otp.backoff.retry",
+              error: e instanceof Error ? e.message : String(e),
+            })
+
+            return true
+          },
+        },
+      )
+
+      if (!verified) return http.error("activation failed")
+    } catch (e: unknown) {
+      logger.error("otp:verification:failed", {
+        event: "otp.verification.failed",
+        scope: "kv.otp",
+        input: { otp },
+        error: e instanceof Error ? e.message : String(e),
+      })
+
+      return http.error("activation failed")
+    }
+
+    try {
+      const user = await c.env.DB.prepare(
+        "SELECT id FROM users WHERE email = ?  AND active = false",
+      )
+        .bind(email)
+        .first<{ id: string }>()
+
+      if (!user) {
+        logger.warn("user:get:failed", {
+          event: "user.not.found",
+          scope: "db.users",
+        })
+
+        return http.error("activation failed")
+      }
+
+      const result = await c.env.DB.prepare(
+        "UPDATE users SET active = true WHERE email = ?",
+      )
+        .bind(email)
+        .run()
+
+      if (result.meta.changes === 1) {
+        logger.info("user:activated", {
+          event: "user.validated",
+          scope: "db.users",
+          input: { db: { duration: result.meta.duration } },
+        })
+
+        setMetric(c, "db.duration", result.meta.duration)
+
+        const accessPayload = {
+          id: user.id,
+          email,
+          exp: Math.floor(Date.now() / 1000) + 60 * 60,
+        } satisfies JwtValue
+
+        const refreshPayload = {
+          id: user.id,
+          email,
+          exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 14,
+        } satisfies JwtValue
+
+        const accessToken = await jwtSign(accessPayload, c.env.JWT_TOKEN)
+        const refreshToken = await jwtSign(refreshPayload, c.env.JWT_TOKEN)
+        issueAuthCookies(c, accessToken, refreshToken)
+
+        return http.success("user activated")
+      }
+
+      logger.warn("user:activated:failed", {
+        event: "user.activation.failed",
+        scope: "db.users",
+        input: { otp },
+      })
+
+      return http.error("activation failed")
+    } catch (err) {
+      logger.error("db:error", {
+        event: "db.error",
+        scope: "db.users",
+        error: err instanceof Error ? err.message : String(err),
+      })
+
+      return http.error("Unknown error", {}, 500)
     }
   },
 )
