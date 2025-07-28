@@ -34,3 +34,32 @@ export async function storeOtp(
 function otpKey(email: string) {
   return `otp:${email.trim().toLowerCase()}`
 }
+
+export async function verifyOtp(
+  env: Cloudflare.Env,
+  email: string,
+  submitted: string,
+  onError?: OnValidationErrorCallback,
+): Promise<boolean> {
+  const key = otpKey(email)
+  const { success, output: record } = extract(otpRecord).from(
+    await env.STORE.get(key, "json"),
+    issues => onError?.(issues),
+  )
+
+  if (!success) {
+    await env.STORE.delete(key)
+    return false
+  }
+
+  if (record.otp !== submitted) {
+    // todo: attempts should be controlled outside bc this function is retried on error.
+    record.attempts++
+    onError?.({ otp: [`otp invalid -- attempt #${record.attempts}`] })
+    await env.STORE.put(key, JSON.stringify(record))
+    return false
+  }
+
+  await env.STORE.delete(key)
+  return true
+}
