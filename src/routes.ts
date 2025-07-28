@@ -264,8 +264,8 @@ routes.post(
           exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 14,
         } satisfies JwtValue
 
-        const accessToken = await jwtSign(accessPayload, c.env.JWT_TOKEN)
-        const refreshToken = await jwtSign(refreshPayload, c.env.JWT_TOKEN)
+        const accessToken = await jwtSign(accessPayload, c.env.JWT_SECRET)
+        const refreshToken = await jwtSign(refreshPayload, c.env.JWT_SECRET)
         issueAuthCookies(c, accessToken, refreshToken)
 
         return http.success("user activated")
