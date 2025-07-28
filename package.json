@@ -3,11 +3,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev --local",
-    "deploy": "wrangler deploy --minify",
+    "dev": "npx wrangler dev --local",
+    "deploy": "npx wrangler deploy --minify",
     "check": "pnpm biome check",
     "format": "pnpm biome format --write",
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
+    "cf-typegen": "npx wrangler types --env-interface CloudflareBindings -c wrangler.jsonc -c ../tokenator/wrangler.jsonc"
   },
   "dependencies": {
     "@gambonny/cflo": "^0.0.14",

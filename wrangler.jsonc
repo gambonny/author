@@ -33,5 +33,12 @@
       "binding": "SIGNUP_WFW",
       "class_name": "SignupWorkflow"
     }
+  ],
+  "services": [
+    {
+      "service": "tokenator",
+      "binding": "TOKENATOR",
+      "entrypoint": "Tokenator"
+    }
   ]
 }
