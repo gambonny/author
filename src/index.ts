@@ -13,6 +13,7 @@ import {
   traceparent,
   responseMaker,
   hasherMaker,
+  backoffMaker,
 } from "@/middlewares"
 import { urls } from "@/schemas"
 import { routes } from "@/routes"
@@ -39,6 +40,14 @@ app.use(trimTrailingSlash())
 app.use(logger({ appName: "Author" }))
 app.use(responseMaker())
 app.use(hasherMaker())
+app.use(
+  backoffMaker({
+    numOfAttempts: 5,
+    startingDelay: 200,
+    maxDelay: 2000,
+    jitter: "full",
+  }),
+)
 
 app.route("/", routes)
 
@@ -52,3 +61,5 @@ app.onError((err, c) => {
 })
 
 export default app
+
+export { SignupWorkflow } from "@/workflows/signup"

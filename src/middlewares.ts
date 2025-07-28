@@ -1,5 +1,7 @@
-import { useLogger } from "@gambonny/cflo"
 import { createMiddleware } from "hono/factory"
+
+import { useLogger } from "@gambonny/cflo"
+import { backOff, type BackoffOptions } from "exponential-backoff"
 
 import { makeHttpResponse } from "@/lib/httpResponseMaker"
 import { makeHasher } from "@/lib/hasher"
@@ -40,13 +42,14 @@ export function traceparent() {
   })
 }
 
+/**
+ * Middleware to append `Timing-Allow-Origin` headers.
+ */
+
 interface TaoOptions {
   origin: string | ReadonlyArray<string>
 }
 
-/**
- * Middleware to append `Timing-Allow-Origin` headers.
- */
 export function tao({ origin }: TaoOptions) {
   const origins = Array.isArray(origin) ? origin : [origin]
 
@@ -76,11 +79,7 @@ export function logger({ appName }: { appName: string }) {
 
 export function responseMaker() {
   return createMiddleware((c, next) => {
-    const { withSuccess, withError } = makeHttpResponse(c)
-
-    c.set("withSuccess", withSuccess)
-    c.set("withError", withError)
-
+    c.set("http", makeHttpResponse(c))
     return next()
   })
 }
@@ -97,3 +96,21 @@ export const hasherMaker = () =>
     c.set("hash", makeHasher(pepper))
     await next()
   })
+
+export type BackoffFn = <T>(
+  fn: () => Promise<T>,
+  opts?: BackoffOptions,
+) => Promise<T>
+
+export function backoffMaker(defaultOptions: BackoffOptions) {
+  return createMiddleware(async (c, next) => {
+    c.set(
+      "backoff",
+      <T>(fn: () => Promise<T>, opts?: BackoffOptions): Promise<T> => {
+        return backOff(fn, { ...defaultOptions, ...opts })
+      },
+    )
+
+    await next()
+  })
+}

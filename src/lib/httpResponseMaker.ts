@@ -61,31 +61,31 @@ function buildPayload<T>(
   }
 }
 
-export type WithSuccessFn = <T>(
+export type SuccessFn = <T>(
   msg: string,
   data?: T,
   statusCode?: ContentfulStatusCode,
 ) => Response
 
-export type WithErrorFn = (
+export type ErrorFn = (
   msg: string,
   issues?: ValidationIssues,
   statusCode?: ContentfulStatusCode,
 ) => Response
 
 export function makeHttpResponse(c: Context): {
-  withSuccess: WithSuccessFn
-  withError: WithErrorFn
+  success: SuccessFn
+  error: ErrorFn
 } {
-  const withSuccess: WithSuccessFn = (message, data, status = 200) => {
+  const success: SuccessFn = (message, data, status = 200) => {
     const payload = buildPayload(c, "success", message, data)
     return c.json(payload, status)
   }
 
-  const withError: WithErrorFn = (message, issues, status = 400) => {
+  const error: ErrorFn = (message, issues, status = 400) => {
     const payload = buildPayload(c, "error", message, issues)
     return c.json(payload, status)
   }
 
-  return { withSuccess, withError }
+  return { success, error }
 }
