@@ -10,6 +10,7 @@ import { hashPassword, salt } from "@/lib/crypto"
 import { generateOtp, storeOtp, verifyOtp } from "@/lib/otp"
 import { issueAuthCookies } from "@/lib/cookies"
 import type { AppEnv, Credentials, JwtValue, OtpPayload } from "@/types"
+import { Temporal } from "@js-temporal/polyfill"
 
 export const routes = new Hono<AppEnv>()
 
@@ -256,12 +257,14 @@ routes.post(
           id: user.id,
           email,
           exp: Math.floor(Date.now() / 1000) + 60 * 60,
+          iat: Temporal.Now.instant().epochMilliseconds,
         } satisfies JwtValue
 
         const refreshPayload = {
           id: user.id,
           email,
           exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 14,
+          iat: Temporal.Now.instant().epochMilliseconds,
         } satisfies JwtValue
 
         const accessToken = await jwtSign(accessPayload, c.env.JWT_SECRET)
@@ -293,7 +296,7 @@ routes.post(
   "/me",
   timing({ totalDescription: "me-request" }),
   async (c): Promise<Response> => {
-    const logger = c.var.getLogger({ route: "auth.me.handler" })
+    const logger = c.var.getLogger({ route: "author.me.handler" })
     const token = getCookie(c, "token")
     const { http } = c.var
 

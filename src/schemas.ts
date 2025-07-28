@@ -23,9 +23,10 @@ export const otpCode = v.pipe(v.string(), v.length(8))
 // Auth
 export const credentials = v.strictObject({ email, password })
 export const jwtValue = v.object({
-  id: v.string(),
+  id: v.number(),
   email: email,
   exp: v.number(),
+  iat: v.number(),
 })
 
 // Opt
