@@ -11,5 +11,8 @@
     "paths": {
       "@/*": ["src/*"]
     }
-  }
+  },
+  "references": [
+    { "path": "../tokenator/tsconfig.lib.json" }
+  ]
 }

@@ -8,7 +8,7 @@
     "check": "pnpm biome check",
     "format": "pnpm biome format --write",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings -c wrangler.jsonc -c ../tokenator/wrangler.jsonc",
-    "typecheck": "tsc"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@gambonny/cflo": "^0.0.14",
