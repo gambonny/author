@@ -518,6 +518,23 @@ routes.post(
       scope: "auth.password",
     })
 
+    const user = await c.env.DB.prepare(
+      "SELECT id FROM users WHERE email = ?  AND active = true",
+    )
+      .bind(email)
+      .first<{ id: number }>()
+
+    if (!user) {
+      logger.info("email:not:found", {
+        event: "user.not.found",
+        scope: "db.users",
+        hashed_email: c.var.hash(email),
+      })
+
+      // Return 200 to avoid disclosing existence
+      return http.success("email sent")
+    }
+
     const rawToken = crypto.randomUUID()
     const tokenHash = await sha256hex(rawToken)
 
