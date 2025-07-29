@@ -53,13 +53,18 @@ export async function verifyOtp(
   }
 
   if (record.otp !== submitted) {
-    // todo: attempts should be controlled outside bc this function is retried on error.
     record.attempts++
     onError?.({ otp: [`otp invalid -- attempt #${record.attempts}`] })
     await env.STORE.put(key, JSON.stringify(record))
     return false
   }
 
-  await env.STORE.delete(key)
+  // silent-delete so we don’t trigger a retry if delete briefly errors
+  try {
+    await env.STORE.delete(key)
+  } catch {
+    /* no-op */
+  }
+
   return true
 }
