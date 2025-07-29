@@ -32,3 +32,4 @@ lerna-debug.log*
 # misc
 .DS_Store
 repomix-output.xml
+.wireit
