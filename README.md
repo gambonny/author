@@ -2,6 +2,46 @@
 
 Authentication Worker Template — Manage signup, login, OTP, and password reset flows for SPAs.
 
+## 🔐 Authentication
+This Worker uses `JWT`s to manage user sessions. Tokens are issued on successful login and stored as `HttpOnly` cookies (`token`, `refresh_token`).
+
+The `JWT` payload has the following structure:
+
+```json
+{
+  "email": "user@example.com",
+  "id": 42,
+  "exp": 1725630000,
+  "iat": 1725626400
+}
+```
+
+All timestamps are UNIX seconds (exp = expiration, iat = issued at)
+
+
+## 🔗 Token Verification via `Tokenator`
+This Worker does not verify `JWT`s directly — instead, it delegates token validation to a companion Worker called [Tokenator](https://github.com/gambonny/tokenator).
+
+You must:
+
+Deploy `Tokenator`.
+
+Bind it as a service to this Worker in your `wrangler.jsonc`:
+
+```jsonc
+{
+  "services": [
+    {
+      "service": "tokenator",
+      "binding": "TOKENATOR",
+      "entrypoint": "Tokenator"
+    }
+  ]
+}
+```
+
+If the token is missing or invalid, protected routes like `/me` will return 401 Unauthorized.
+
 
 ## 🧩 Routes
 This Worker exposes the following HTTP endpoints:
