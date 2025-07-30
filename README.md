@@ -1,6 +1,6 @@
 # Author
 
-Authentication Worker Template — Manage signup, login, OTP, and password reset flows for SPAs.
+Authentication Worker Template — Manage signup, login, OTP, and password reset flows for SPAs using Hono.
 
 ## 🔐 Authentication
 This Worker uses `JWT`s to manage user sessions. Tokens are issued on successful login and stored as `HttpOnly` cookies (`token`, `refresh_token`).
@@ -49,10 +49,10 @@ This Worker exposes the following HTTP endpoints:
 | Method | Path              | Description                                          |
 |--------|-------------------|------------------------------------------------------|
 | POST   | `/signup`         | Register a user. Triggers OTP via workflow.         |
-| POST   | `/signup/verify`  | Verify the OTP sent to the user.                    |
+| POST   | `/otp/verify`  | Verify the OTP sent to the user.                    |
 | POST   | `/login`          | Validate credentials, return tokens via cookies.    |
-| POST   | `/password/reset` | Start password reset, sends token via email.        |
-| POST   | `/password/update`| Set new password after reset token is verified.     |
+| POST   | `/password/remember` | Start password reset, sends token via email.        |
+| POST   | `/password/reset`| Set new password after reset token is verified.     |
 | POST   | `/me`             | Validate the current session and return user info.  |
 
 
@@ -96,21 +96,6 @@ Run the initial migration:
 npx wrangler d1 migrations apply your-db-name
 ```
 
-This will create a `users` table and a supporting index with the following structure:
-
-```sql
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  salt TEXT NOT NULL,
-  active BOOLEAN NOT NULL DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-```
-
 **KV Namespace** <br />
 Used for OTPs and password-reset tokens.
 
@@ -139,6 +124,69 @@ Required for signup expiration/cleanup logic.
   }
 }
 ```
+
+## 🧱 Middlewares
+This Worker uses layered middlewares to enforce structure, observability, and security. Each middleware contributes to system clarity and traceability.
+
+**🧬 traceparent**: Enforces presence of the traceparent header on every request. <br />
+
+✅ Ensures:
+
+- All incoming traffic is traceable to a user/client action.
+- Logs can be correlated end-to-end (frontend ⇄ backend).
+- Synthetic or malformed traffic is rejected early.
+
+> If missing, the request is rejected with a vague 400 Bad Request.
+
+
+**🧾 logger**: Initializes structured logging with `cflo`. <br />
+
+✅ Benefits:
+
+- Adds deployment info and traceparent ID to each log.
+- Ensures all logs follow a consistent schema (appName, route, event, etc).
+- Makes logs useful for debugging, metrics, and incident analysis.
+
+**🛠 responseMaker**: Adds http.success() and http.error() to the context. <br />
+
+✅ Benefits:
+
+- Consistent response shape across the app.
+- Standardized keys: status, message, resource_url, data, issues.
+- Reduces repeated boilerplate when building HTTP responses.
+
+
+**🧂 hasherMaker**: Injects a `SHA‑256` hasher that includes a pepper. <br />
+
+✅ Why:
+
+- Ensures all password operations use a consistent, secure hashing strategy.
+- Reads `HASH_PEPPER` from environment.
+- Prevents logic duplication across routes.
+
+> If HASH_PEPPER is missing, the request is rejected with a 500 Internal Error.
+
+**🔁 backoffMaker**: Adds `c.var.backoff()` utility for exponential retry logic. <br />
+
+✅ Use cases:
+
+- Retrying KV or DB operations that may fail transiently.
+- Helps avoid exposing internal failures to users.
+- Makes resilience a first-class citizen.
+
+**🔒 authMiddleware**: Protects routes that require a valid `JWT`. <br />
+
+✅ Features:
+
+- Reads `JWT` from the token cookie.
+- Verifies it using the `Tokenator` service.
+- Logs all failures with detailed event tagging.
+
+If the token is:
+
+- Missing → returns 401 Unauthorized
+
+- Invalid → returns 401 Unauthorized
 
 ## 🪵 Logging
 This worker uses `cflo` for structured logging. Configure logging with:
