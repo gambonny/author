@@ -115,7 +115,7 @@ Bind it in `wrangler.jsonc`:
 **Workflows** <br />
 Required for signup expiration/cleanup logic.
 
-```jsconc
+```jsonc
 {
   "workflows": {
     "bindings": [
