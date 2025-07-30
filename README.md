@@ -56,10 +56,10 @@ This Worker exposes the following HTTP endpoints:
 | POST   | `/me`             | Validate the current session and return user info.  |
 
 
-## ⚙️ Requirements
+# ⚙️ Requirements
 This Worker uses several Cloudflare features. You must set up the following:
 
-### Secrets (required)
+## Secrets (required)
 These must be configured via `npx wrangler secret put` and also added to `.dev.vars` for local development:
 
 ```bash
@@ -69,7 +69,7 @@ JWT_SECRET=...
 ```
 > You must have an account with Resend and use a valid API key.
 
-### Resources
+## Resources
 This worker depends on the following Cloudflare services. You must create and bind them in `wrangler.jsonc`:
 
 
@@ -125,12 +125,11 @@ Required for signup expiration/cleanup logic.
 }
 ```
 
-## 🧱 Middlewares
+# 🧱 Middlewares
 This Worker uses layered middlewares to enforce structure, observability, and security. Each middleware contributes to system clarity and traceability.
 
----
-
-**🧬 traceparent**: Enforces presence of the traceparent header on every request. <br />
+## 🧬 traceparent
+Enforces presence of the traceparent header on every request. <br />
 
 ✅ Ensures:
 
@@ -140,9 +139,9 @@ This Worker uses layered middlewares to enforce structure, observability, and se
 
 > If missing, the request is rejected with a vague 400 Bad Request.
 
----
 
-**🧾 logger**: Initializes structured logging with `cflo`. <br />
+## 🧾 logger 
+Initializes structured logging with `cflo`. <br />
 
 ✅ Benefits:
 
@@ -150,9 +149,8 @@ This Worker uses layered middlewares to enforce structure, observability, and se
 - Ensures all logs follow a consistent schema (appName, route, event, etc).
 - Makes logs useful for debugging, metrics, and incident analysis.
 
----
-
-**🛠 responseMaker**: Adds http.success() and http.error() to the context. <br />
+## 🛠 responseMaker
+Adds `http.success()` and `http.error()` to the context. <br />
 
 ✅ Benefits:
 
@@ -160,9 +158,8 @@ This Worker uses layered middlewares to enforce structure, observability, and se
 - Standardized keys: status, message, resource_url, data, issues.
 - Reduces repeated boilerplate when building HTTP responses.
 
----
-
-**🧂 hasherMaker**: Injects a `SHA‑256` hasher that includes a pepper. <br />
+## 🧂 hasherMaker
+Injects a `SHA‑256` hasher that includes a pepper. <br />
 
 ✅ Why:
 
@@ -172,9 +169,9 @@ This Worker uses layered middlewares to enforce structure, observability, and se
 
 > If HASH_PEPPER is missing, the request is rejected with a 500 Internal Error.
 
----
 
-**🔁 backoffMaker**: Adds `c.var.backoff()` utility for exponential retry logic. <br />
+## 🔁 backoffMaker
+Adds `c.var.backoff()` utility for exponential retry logic. <br />
 
 ✅ Use cases:
 
@@ -182,7 +179,8 @@ This Worker uses layered middlewares to enforce structure, observability, and se
 - Helps avoid exposing internal failures to users.
 - Makes resilience a first-class citizen.
 
-**🔒 authMiddleware**: Protects routes that require a valid `JWT`. <br />
+## 🔒 authMiddleware
+Protects routes that require a valid `JWT`. <br />
 
 ✅ Features:
 
@@ -196,9 +194,8 @@ If the token is:
 
 - Invalid → returns 401 Unauthorized
 
----
 
-## 🪵 Logging
+### 🪵 Logging
 This worker uses `cflo` for structured logging. Configure logging with:
 
 ```jsonc
