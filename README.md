@@ -147,7 +147,7 @@ Initializes structured logging with `cflo`. <br />
 
 - Adds deployment info and traceparent ID to each log.
 - Ensures all logs follow a consistent schema (appName, route, event, etc).
-- Makes logs useful for debugging, metrics, and incident analysis.
+- Makes it easier to adjust log levels globally.
 
 ## 🛠 responseMaker
 Adds `http.success()` and `http.error()` to the context. <br />
@@ -163,9 +163,10 @@ Injects a `SHA‑256` hasher that includes a pepper. <br />
 
 ✅ Why:
 
-- Ensures all password operations use a consistent, secure hashing strategy.
-- Reads `HASH_PEPPER` from environment.
-- Prevents logic duplication across routes.
+- Allows you to hash sensitive data like emails before logging, helping you comply with the principle of data minimization (aligned with laws like GDPR and security best practices).
+- Prevents accidental exposure of plaintext credentials in logs.
+- Ensures all hashing uses a consistent, non-reversible format with a peppered strategy.
+- Keeps the logic centralized — no need to reimplement hashing in every route.
 
 > If HASH_PEPPER is missing, the request is rejected with a 500 Internal Error.
 
