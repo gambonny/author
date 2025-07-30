@@ -6,13 +6,14 @@ Authentication Worker Template — Manage signup, login, OTP, and password reset
 ## 🧩 Routes
 This Worker exposes the following HTTP endpoints:
 
-Method	Path	Description
-POST	/signup	Register a user. Triggers OTP via workflow.
-POST	/signup/verify	Verify the OTP sent to the user.
-POST	/login	Validate credentials, return tokens via cookies.
-POST	/password/reset	Start password reset, sends token via email.
-POST	/password/update	Set new password after reset token is verified.
-POST	/me	???
+| Method | Path              | Description                                          |
+|--------|-------------------|------------------------------------------------------|
+| POST   | `/signup`         | Register a user. Triggers OTP via workflow.         |
+| POST   | `/signup/verify`  | Verify the OTP sent to the user.                    |
+| POST   | `/login`          | Validate credentials, return tokens via cookies.    |
+| POST   | `/password/reset` | Start password reset, sends token via email.        |
+| POST   | `/password/update`| Set new password after reset token is verified.     |
+| POST   | `/me`             | Validate the current session and return user info.  |
 
 
 ## ⚙️ Requirements
