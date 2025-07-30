@@ -197,7 +197,7 @@ If the token is:
 
 
 ### 🪵 Logging
-This worker uses `cflo` for structured logging. Configure logging with:
+This worker uses [cflo](https://github.com/gambonny/cflo) for structured logging. Configure logging with:
 
 ```jsonc
 {
