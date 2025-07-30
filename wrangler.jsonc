@@ -17,14 +17,14 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "author_db",
-      "database_id": "3645669a-14cd-46e2-b896-d0f339077bc1"
+      "database_name": "db-name",
+      "database_id": "..."
     }
   ],
   "kv_namespaces": [
     {
       "binding": "STORE",
-      "id": "df507049ee9c4e49b2629864c432f965"
+      "id": "..."
     }
   ],
   "workflows": [
