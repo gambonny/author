@@ -73,7 +73,7 @@ JWT_SECRET=...
 This worker depends on the following Cloudflare services. You must create and bind them in `wrangler.jsonc`:
 
 
-**D1 Database** <br />
+### D1 Database
 Used to persist user accounts and activation state.
 Create the database:
 
@@ -96,7 +96,7 @@ Run the initial migration:
 npx wrangler d1 migrations apply your-db-name
 ```
 
-**KV Namespace** <br />
+### KV Namespace
 Used for OTPs and password-reset tokens.
 
 ```bash
@@ -112,7 +112,7 @@ Bind it in `wrangler.jsonc`:
 }
 ```
 
-**Workflows** <br />
+### Workflows
 Required for signup expiration/cleanup logic.
 
 ```jsonc
