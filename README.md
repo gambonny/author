@@ -215,3 +215,8 @@ This worker uses `cflo` for structured logging. Configure logging with:
 pnpm install
 pnpm dev
 ```
+
+## 🧰 Managing Workers with Wireworks
+If you're building or scaling multiple Cloudflare Workers, consider using [Wireworks](https://github.com/gambonny/wireworks) — a CLI tool designed to make managing multiple Worker repositories easier, without needing a monorepo or Git submodules.
+
+
