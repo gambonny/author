@@ -128,6 +128,8 @@ Required for signup expiration/cleanup logic.
 ## 🧱 Middlewares
 This Worker uses layered middlewares to enforce structure, observability, and security. Each middleware contributes to system clarity and traceability.
 
+---
+
 **🧬 traceparent**: Enforces presence of the traceparent header on every request. <br />
 
 ✅ Ensures:
@@ -138,6 +140,7 @@ This Worker uses layered middlewares to enforce structure, observability, and se
 
 > If missing, the request is rejected with a vague 400 Bad Request.
 
+---
 
 **🧾 logger**: Initializes structured logging with `cflo`. <br />
 
@@ -147,6 +150,8 @@ This Worker uses layered middlewares to enforce structure, observability, and se
 - Ensures all logs follow a consistent schema (appName, route, event, etc).
 - Makes logs useful for debugging, metrics, and incident analysis.
 
+---
+
 **🛠 responseMaker**: Adds http.success() and http.error() to the context. <br />
 
 ✅ Benefits:
@@ -155,6 +160,7 @@ This Worker uses layered middlewares to enforce structure, observability, and se
 - Standardized keys: status, message, resource_url, data, issues.
 - Reduces repeated boilerplate when building HTTP responses.
 
+---
 
 **🧂 hasherMaker**: Injects a `SHA‑256` hasher that includes a pepper. <br />
 
@@ -165,6 +171,8 @@ This Worker uses layered middlewares to enforce structure, observability, and se
 - Prevents logic duplication across routes.
 
 > If HASH_PEPPER is missing, the request is rejected with a 500 Internal Error.
+
+---
 
 **🔁 backoffMaker**: Adds `c.var.backoff()` utility for exponential retry logic. <br />
 
@@ -187,6 +195,8 @@ If the token is:
 - Missing → returns 401 Unauthorized
 
 - Invalid → returns 401 Unauthorized
+
+---
 
 ## 🪵 Logging
 This worker uses `cflo` for structured logging. Configure logging with:
