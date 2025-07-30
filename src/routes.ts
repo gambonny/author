@@ -591,8 +591,8 @@ routes.post(
       const { error } = await c.var.backoff(
         () =>
           resend.emails.send({
-            from: "me@mail.gambonny.com",
-            to: "gambonny@gmail.com",
+            from: "me@mail.example.com",
+            to: email,
             subject: "Your password reset token",
             html: `<p>Your reset token is <strong>${rawToken}</strong>. It expires in 1 hour.</p>`,
           }),
