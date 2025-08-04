@@ -53,7 +53,7 @@ This Worker exposes the following HTTP endpoints:
 | POST   | `/login`          | Validate credentials, return tokens via cookies.    |
 | POST   | `/password/remember` | Start password reset, sends token via email.        |
 | POST   | `/password/reset`| Set new password after reset token is verified.     |
-| POST   | `/me`             | Validate the current session and return user info.  |
+| GET    | `/me`             | Validate the current session and return user info.  |
 
 
 # ⚙️ Requirements
