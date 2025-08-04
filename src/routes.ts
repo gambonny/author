@@ -393,9 +393,7 @@ routes.post(
     })
 
     const row = await c.env.DB.prepare(
-      `SELECT id, password_hash, salt, active
-         FROM users
-        WHERE email = ?`,
+      `SELECT id, password_hash, salt, active FROM users WHERE email = ?`,
     )
       .bind(email)
       .first<{
@@ -412,7 +410,11 @@ routes.post(
         reason: "user doesn't exist in the database",
       })
 
-      return http.error("Invalid email or password", {}, 401)
+      return http.error(
+        "Invalid email or password",
+        { general: ["Invalid email or password"] },
+        401,
+      )
     }
 
     const computed = await hashPassword(password, row.salt)
@@ -422,7 +424,13 @@ routes.post(
         scope: "auth.session",
       })
 
-      return http.error("Invalid email or password", {}, 401)
+      return http.error(
+        "Invalid email or password",
+        {
+          general: ["Invalid email or password"],
+        },
+        401,
+      )
     }
 
     const now = Math.floor(Date.now() / 1000)
@@ -457,7 +465,7 @@ routes.post(
         error: e instanceof Error ? e.message : String(e),
       })
 
-      return http.error("unknown error", 500)
+      return http.error("unknown error", { general: ["Unknwon error"] }, 500)
     }
   },
 )
