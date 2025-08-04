@@ -309,7 +309,7 @@ routes.post(
   },
 )
 
-routes.post(
+routes.get(
   "/me",
   timing({ totalDescription: "me-request" }),
   async (c): Promise<Response> => {
