@@ -773,3 +773,73 @@ routes.post(
     return http.success("Password has been successfully reset")
   },
 )
+
+routes.post(
+  "/refresh",
+  timing({ totalDescription: "refresh-request" }),
+  async (c): Promise<Response> => {
+    const logger = c.var.getLogger({ route: "author.refresh.handler" })
+    const { http, backoff } = c.var
+
+    const refreshToken = getCookie(c, "refresh_token")
+    if (!refreshToken) {
+      logger.info("refresh:no-refresh-token")
+      return http.error("No refresh token", {}, 401)
+    }
+
+    try {
+      const user = await backoff<JwtValue | false>(
+        () => c.env.TOKENATOR.decodeToken(refreshToken),
+        {
+          retry: (err, attempt) => {
+            const isNetwork = err instanceof TypeError
+            const isServer = err?.status >= 500
+            if (isNetwork || isServer) {
+              logger.warn("refresh:token-validate-retry", {
+                attempt,
+                error: err.message,
+              })
+
+              return true
+            }
+
+            return false
+          },
+        },
+      )
+
+      if (!user) {
+        logger.warn("refresh:invalid-refresh-token")
+        return http.error("Invalid refresh token", {}, 401)
+      }
+
+      const now = Math.floor(Date.now() / 1000)
+      const accessPayload = {
+        id: user.id,
+        email: user.email,
+        exp: now + 60 * 60,
+        iat: now,
+      } satisfies JwtValue
+
+      const refreshPayload = {
+        id: user.id,
+        email: user.email,
+        exp: now + 60 * 60 * 24 * 14,
+        iat: now,
+      } satisfies JwtValue
+
+      const newAccessToken = await jwtSign(accessPayload, c.env.JWT_SECRET)
+      const newRefreshToken = await jwtSign(refreshPayload, c.env.JWT_SECRET)
+      issueAuthCookies(c, newAccessToken, newRefreshToken)
+
+      logger.info("refresh:success")
+      return http.success("Token refreshed")
+    } catch (err: unknown) {
+      logger.error("refresh:error", {
+        error: err instanceof Error ? err.message : String(err),
+      })
+
+      return http.error("Could not refresh token, please try again", {}, 500)
+    }
+  },
+)
