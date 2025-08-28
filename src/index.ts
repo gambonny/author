@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers"
 
 import { Hono } from "hono"
 import { cors } from "hono/cors"
+import { except } from "hono/combine"
 import { trimTrailingSlash } from "hono/trailing-slash"
 import { uaBlocker } from "@hono/ua-blocker"
 import { aiBots, useAiRobotsTxt } from "@hono/ua-blocker/ai-bots"
@@ -35,7 +36,7 @@ app.use("/robots.txt", useAiRobotsTxt())
 app.use(cors({ origin: origins, credentials: true }))
 app.use(tao({ origin: origins }))
 
-app.use(traceparent())
+app.use(except("/me", traceparent()))
 app.use(trimTrailingSlash())
 app.use(logger({ appName: "Author" }))
 app.use(responseMaker())

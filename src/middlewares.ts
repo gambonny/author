@@ -72,7 +72,7 @@ export function logger({ appName }: { appName: string }) {
       context: {
         appName,
         deployId: c.env.CF_VERSION_METADATA.id,
-        traceparent: c.get("traceparent"),
+        traceparent: c.get("traceparent") ?? "none",
       },
     })(c, next),
   )
