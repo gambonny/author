@@ -125,7 +125,7 @@ routes.post(
           error: e instanceof Error ? e.message : String(e),
         })
 
-        return http.error("unknown error", {}, 500)
+        return http.error("unknown error", { general: ["Unknown error"] }, 500)
       }
 
       const workflow = await c.env.SIGNUP_WFW.create({
@@ -162,7 +162,13 @@ routes.post(
         error: e instanceof Error ? e.message : String(e),
       })
 
-      return http.error("unknown error", {}, 500)
+      return http.error(
+        "unknown error",
+        {
+          general: ["Unknown error"],
+        },
+        500,
+      )
     }
   },
 )
@@ -182,7 +188,11 @@ routes.post(
         })
     })
 
-    if (!success) return c.var.http.error("invalid input")
+    if (!success) {
+      return c.var.http.error("activation failed", {
+        general: ["Activation failed"],
+      })
+    }
 
     return output
   }),
@@ -226,7 +236,11 @@ routes.post(
         },
       )
 
-      if (!verified) return http.error("activation failed")
+      if (!verified) {
+        return http.error("activation failed", {
+          general: ["Activation failed"],
+        })
+      }
     } catch (e: unknown) {
       logger.error("otp:verification:failed", {
         event: "otp.verification.failed",
@@ -235,7 +249,9 @@ routes.post(
         error: e instanceof Error ? e.message : String(e),
       })
 
-      return http.error("activation failed")
+      return http.error("activation failed", {
+        general: ["Activation failed"],
+      })
     }
 
     try {
@@ -251,7 +267,9 @@ routes.post(
           scope: "db.users",
         })
 
-        return http.error("activation failed")
+        return http.error("activation failed", {
+          general: ["Activation failed"],
+        })
       }
 
       const result = await c.env.DB.prepare(
@@ -304,7 +322,7 @@ routes.post(
         error: err instanceof Error ? err.message : String(err),
       })
 
-      return http.error("Unknown error", {}, 500)
+      return http.error("Unknown error", { general: ["Unknown error"] }, 500)
     }
   },
 )
@@ -412,7 +430,7 @@ routes.post(
 
       return http.error(
         "Invalid email or password",
-        { general: ["Invalid email or password"] },
+        { general: ["invalid user or password"] },
         401,
       )
     }
@@ -426,9 +444,7 @@ routes.post(
 
       return http.error(
         "Invalid email or password",
-        {
-          general: ["Invalid email or password"],
-        },
+        { general: ["invalid user or password"] },
         401,
       )
     }
@@ -465,7 +481,7 @@ routes.post(
         error: e instanceof Error ? e.message : String(e),
       })
 
-      return http.error("unknown error", { general: ["Unknwon error"] }, 500)
+      return http.error("unknown error", { general: ["Unknown error"] }, 500)
     }
   },
 )
@@ -571,7 +587,9 @@ routes.post(
       if (!stored) {
         return http.error(
           "Failed to generate reset token, please try again later",
-          {},
+          {
+            general: ["Failed to generate reset token, please try again later"],
+          },
           500,
         )
       }
@@ -584,7 +602,7 @@ routes.post(
 
       return http.error(
         "Failed to generate reset token, please try again later",
-        {},
+        { general: ["Failed to generate reset token, please try again later"] },
         500,
       )
     }
@@ -639,7 +657,7 @@ routes.post(
 
       return http.error(
         "Failed to send reset email, please try again later",
-        {},
+        { general: ["Failed to generate reset token, please try again later"] },
         500,
       )
     }
@@ -701,7 +719,7 @@ routes.post(
       if (!email) {
         return http.error(
           "Token has expired, please request a new one",
-          {},
+          { general: ["Token has expired, please request a new one"] },
           410,
         )
       }
@@ -727,7 +745,11 @@ routes.post(
         scope: "db.users",
       })
 
-      return http.error("User not found", {}, 404)
+      return http.error(
+        "Token has expired, please request a new one",
+        { general: ["Token has expired, please request a new one"] },
+        404,
+      )
     }
 
     const passwordHash = await hashPassword(password, user.salt)
