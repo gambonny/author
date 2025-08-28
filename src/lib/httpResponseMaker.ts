@@ -4,6 +4,7 @@ import type { ValidationIssues } from "@/types"
 
 interface SuccessPayload<T> {
   status: "success"
+  code: number
   message: string
   resource_url: string
   data?: T
@@ -11,6 +12,7 @@ interface SuccessPayload<T> {
 
 interface ErrorPayload {
   status: "error"
+  code: number
   message: string
   resource_url: string
   issues?: ValidationIssues
@@ -27,6 +29,7 @@ function buildPayload<T>(
   c: Context,
   type: "success",
   message: string,
+  code: number,
   data?: T,
 ): SuccessPayload<T>
 
@@ -34,6 +37,7 @@ function buildPayload(
   c: Context,
   type: "error",
   message: string,
+  code: number,
   issues?: ValidationIssues,
 ): ErrorPayload
 
@@ -41,10 +45,11 @@ function buildPayload<T>(
   c: Context,
   type: "success" | "error",
   message: string,
+  code: number,
   dataOrIssues?: T | ValidationIssues,
 ): SuccessPayload<T> | ErrorPayload {
   const { origin, pathname } = new URL(c.req.url)
-  const base = { status: type, message, resource_url: origin + pathname }
+  const base = { status: type, message, resource_url: origin + pathname, code }
 
   if (isSuccess(type, dataOrIssues)) {
     return {
@@ -78,12 +83,12 @@ export function makeHttpResponse(c: Context): {
   error: ErrorFn
 } {
   const success: SuccessFn = (message, data, status = 200) => {
-    const payload = buildPayload(c, "success", message, data)
+    const payload = buildPayload(c, "success", message, status, data)
     return c.json(payload, status)
   }
 
   const error: ErrorFn = (message, issues, status = 400) => {
-    const payload = buildPayload(c, "error", message, issues)
+    const payload = buildPayload(c, "error", message, status, issues)
     return c.json(payload, status)
   }
 
